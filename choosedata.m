@@ -28,66 +28,72 @@ close all;
 cd('/media/mpcr/5EBA074CBA071FDF/bird');
 
 patches=[];
-num_patches=0;
-files=dir('*.JPG'); % list all .jpg images in your path 
-for j=1:length(files); % loop through all images in folder
-    im=im2double(imread(files(j).name)); % read each image 
-    figure(1)
-    imagesc(im)
-    fig=gcf();
-    [x,y]=getpts(fig);
-    x=floor(x);
-    y=floor(y);
-    if y<1500
-        for r=1:numel(x)
-            im_patch=im(y(r)-32:y(r)+32, x(r)-32:x(r)+32, :);
-            im_patch=im_patch(:); 
-            patches=[patches im_patch]; %compile image vectors
-            num_patches=num_patches+1;
+labels=[];
+files=dir('*.JPG');
+for j=1:length(files)-1;
+    cd('/media/mpcr/5EBA074CBA071FDF/bird');
+    file_name=files(j).name;
+    cd('/media/mpcr/5EBA074CBA071FDF/M4_3');
+    files2=dir('*.JPG');
+    for i=1:length(files2);
+        if file_name==files2(i).name
+            im=im2double(imread(files2(i).name));
+            im2=im2double(imread(files2(i-1).name));
+            im3=im2double(imread(files2(i+1).name));
+            imagesc(im)
+            fig=gcf();
+            [x, y]=getpts(fig);
+            x=floor(x); y=floor(y);
+            cd('/home/mpcr/Desktop/lila_birds');
+            if y(end)<1500
+                for p=1:numel(y)
+                    im_patch=rgb2gray(im(y(p)-32:y(p)+32, x(p)-32:x(p)+32, :));
+                    im_patch2=rgb2gray(im2(y(p)-32:y(p)+32, x(p)-32:x(p)+32, :));
+                    im_patch3=rgb2gray(im3(y(p)-32:y(p)+32, x(p)-32:x(p)+32, :));
+                    diff=im_patch3-2*im_patch+im_patch2;
+                    %im_diff=MPCRWhiten_Image2(rgb2gray(abs(im_patch-im_patch2)));
+                    %im_diff=imgresize(im_diff, .3, .3);
+                    patches=[patches diff(:)];
+                    labels=[labels; 1];
+                end
+            else
+                continue
+            end
         end
-    elseif x<33
-        continue 
-    elseif x>(size(im, 2)-33)
-        continue
-    else 
-        continue
-    end 
-end 
+    end
+end
 
+pause
+m=numel(labels);
 
-labels=ones(size(patches, 2), 1);
-m=length(labels);
-pause;
-
-cd('/media/mpcr/5EBA074CBA071FDF/M4_3');
-
-files=dir('*.JPG'); % list all .jpg images in your path 
-for j=1:m; % loop through all images in folder
-    im=im2double(imread(files(j).name)); % read each image 
-    figure(1)
-    imagesc(im)
+for i2=2:100;
+    cd('/media/mpcr/5EBA074CBA071FDF/M4_3');
+    im=im2double(imread(files2(i2).name));
+    im2=im2double(imread(files2(i2-1).name));
+    im3=im2double(imread(files2(i2+1).name));
+    imagesc(im);
     fig=gcf();
-    [x,y]=getpts(fig);
-    x=floor(x); y=floor(y);
-    if y<1500
-        for r=1:numel(x)
-            im_patch=im(y(r)-32:y(r)+32, x(r)-32:x(r)+32, :);
-            im_patch=im_patch(:);
+    [x, y]=getpts(fig);
+    x=floor(x);  y=floor(y);
+    cd('/home/mpcr/Desktop/lila_birds');
+    if y(end)<1500
+        for p=1:numel(y);
+            im_patch=rgb2gray(im(y(p)-32:y(p)+32, x(p)-32:x(p)+32, :));
+            im_patch2=rgb2gray(im2(y(p)-32:y(p)+32, x(p)-32:x(p)+32, :));
+            im_patch3=rgb2gray(im3(y(p)-32:y(p)+32, x(p)-32:x(p)+32, :));
+            diff=im_patch3-2*im_patch+im_patch2;
+            %diff=MPCRWhiten_Image2(rgb2gray(abs(im_patch-im_patch2)));
+            %diff=imgresize(diff, .3, .3);
+            patches=[patches diff(:)];
             labels=[labels; 0];
         end
-    elseif x<33
-        continue 
-    elseif x>(size(im, 2)-33)
-        continue
     else
-        continue 
+        continue
     end
-    patches=[patches im_patch]; %compile image vectors
 end
- 
-
-[patches , labels]=add_examples(patches, labels);
 
 cd('/home/mpcr/Desktop/lila_birds');
-save('patch_data.mat', 'patches');
+[patches , labels]=add_examples(patches, labels);
+patches=patches';
+save('data.mat', 'patches');
 save('labels.mat', 'labels');
