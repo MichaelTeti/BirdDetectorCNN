@@ -9,12 +9,14 @@ sys.path.append('/home/mpcr/newproject/venv/lib/python2.7/site-packages')
 import tensorflow as tf
 
 # load data and labels
-a=loadmat('whitened_2ch.mat') 
-data=a['whitened_2ch'] # whitened data
+a=loadmat('data.mat') 
+data=a['patches'] # whitened data
 b=loadmat('labels.mat')
 labels=b['labels'] # labels
 
-# Create training dataset and testing dataset
+# Create training dataset and testing dataset and feature scaling
+data=np.divide((data-np.mean(data, axis=0)), np.std(data, axis=0))
+data=np.nan_to_num(data)
 perm=np.random.permutation(np.ma.size(data, 0))
 data=data[perm, :]
 labels=labels[perm]
@@ -25,7 +27,7 @@ test_labels=labels[(np.ma.size(data, 0)-np.ma.size(data, 0)*.1):]
 
 patch_size=np.ma.size(data, 1) # 130x130x2 input 
 output=1 # one output node
-h1=np.round(25*60*.5, decimals=0).astype(int) # num. of fully connected layer nodes
+h1=np.round(25*50*.5, decimals=0).astype(int) # num. of fully connected layer nodes
 
 # Create random training set each iteration of gradient descent 
 def training_set(X, y, batch):
@@ -55,18 +57,18 @@ out=tf.nn.conv2d(out, tf.Variable(tf.truncated_normal([4, 4, 15, 25],
 out=tf.nn.relu(out+tf.Variable(tf.constant(0.1, shape=[25])))
 out=tf.nn.max_pool(out, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1],
 	padding='SAME')
-out=tf.nn.conv2d(out, tf.Variable(tf.truncated_normal([3, 3, 25, 40], 
+out=tf.nn.conv2d(out, tf.Variable(tf.truncated_normal([3, 3, 25, 35], 
 	stddev=0.1)), strides=[1, 1, 1, 1], padding='SAME')
-out=tf.nn.relu(out+tf.Variable(tf.constant(0.1, shape=[40])))
+out=tf.nn.relu(out+tf.Variable(tf.constant(0.1, shape=[35])))
 out=tf.nn.max_pool(out, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], 
 	padding='SAME')
-out=tf.nn.conv2d(out, tf.Variable(tf.truncated_normal([3, 3, 40, 60],
+out=tf.nn.conv2d(out, tf.Variable(tf.truncated_normal([3, 3, 35, 50],
 	stddev=0.1)), strides=[1, 1, 1, 1], padding='SAME')
-out=tf.nn.relu(out+tf.Variable(tf.constant(0.1, shape=[60])))
+out=tf.nn.relu(out+tf.Variable(tf.constant(0.1, shape=[50])))
 out=tf.nn.max_pool(out, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], 
 	padding='SAME')
-out=tf.matmul(tf.reshape(out, [-1, 25*60]), tf.Variable(tf.truncated_normal
-	([25*60, h1], stddev=0.1)))
+out=tf.matmul(tf.reshape(out, [-1, 25*50]), tf.Variable(tf.truncated_normal
+	([25*50, h1], stddev=0.1)))
 out=tf.nn.dropout(tf.nn.relu(out+tf.Variable(tf.constant(0.1, shape=[h1]))), 
 	keep_prob)
 out=tf.matmul(out, tf.Variable(tf.truncated_normal([h1, h1], stddev=0.1)))
@@ -93,10 +95,12 @@ for i in range(15000): # training iterations
     train_accuracy = accuracy.eval(feed_dict={
         x:training_data, y:training_labels, keep_prob: 1.0})
     print("step %d, training accuracy: %g"%(i, train_accuracy))
+    oute=out.eval(feed_dict={x:training_data, y:training_labels, keep_prob: 1.0})
+    print oute
   train_step.run(feed_dict={x: training_data, y: training_labels, keep_prob: 0.5})
   test_accuracy=accuracy.eval(feed_dict={x:test_data, y:test_labels, keep_prob:1.0})
-  if test_accuracy > .993: # test accuracy on 10% of data
+  if test_accuracy > .99: # test accuracy on 10% of data
     print 'testing accuracy: %.4f' % (test_accuracy)
     # Save modified variables
     save_variables=saver.save(sess, '/home/mpcr/Desktop/lila_birds/bird.ckpt')
-    sys.exit() # exit and save parameters if >= 99.3% accuracy reached
+    sys.exit() # exit and save parameters if >= 99% accuracy reached
