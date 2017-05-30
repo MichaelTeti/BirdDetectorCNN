@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.misc import imread
 import os
+import h5py
 
 ps = 100
 
