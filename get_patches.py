@@ -7,10 +7,8 @@ import glob
 import cv2
 
 
-ps = 75
-patches = []
-photo_dir = '/home/voxelrx/birds/M1All/'
-
+ps = 85
+photo_dir = '/home/voxelrx/birds/M3All/'
 
 def onclick(event):
     global ix, iy
@@ -28,6 +26,12 @@ dirs = os.listdir(os.getcwd())
 num_dirs = len(dirs)
 
 for dir_ in dirs:
+    print(dir_)
+    if os.path.isfile(photo_dir + dir_ + '/' + photo_dir[20:-1] + dir_ + '.h5'):
+        continue
+
+    patches = []
+    labels = []
     os.chdir(photo_dir + dir_)
     counts = np.loadtxt('totals.csv', delimiter=',')
     bird_nums = counts[:, 1]
@@ -35,6 +39,7 @@ for dir_ in dirs:
     files = glob.glob('*.JPG')
     assert(len(files) == bird_nums.size), 'please check data folder'
     files.sort(key=lambda f: int(filter(str.isdigit, f)))
+    num_ones = 0
 
     for j in xrange(1, len(bird_nums)-1):
         if bird_nums[j] == 0:
@@ -44,14 +49,15 @@ for dir_ in dirs:
         im = np.uint8(imread(filename))
         prev = np.uint8(imread(files[j-1]))
         nextim = np.uint8(imread(files[j+1]))
-        im = im[615:, ...]
-        prev = prev[615:, ...]
-        nextim = nextim[615:, ...]
+
+        im = im[450:, ...]
+        prev = prev[450:, ...]
+        nextim = nextim[450:, ...]
+
         print('There are %d birds in this picture'%(bird_nums[j]))
-        raw_input('Press Enter to continue')
 
         for img_num in xrange(1000):
-            cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
+            cv2.namedWindow('Image', cv2.WINDOW_NORMAL)
             if img_num & 1:
                 print('current image')
                 cv2.imshow('Image', im[..., ::-1])
@@ -60,8 +66,6 @@ for dir_ in dirs:
                 cv2.imshow('Image', prev[..., ::-1])
             if cv2.waitKey(650) > 0:
                 break
-
-        #cv2.destroyAllWindows()
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -85,55 +89,48 @@ for dir_ in dirs:
             patchnext = nextim[r-ps:r+ps, c-ps:c+ps, :]
             patchstack = np.concatenate((patchprev, patch, patchnext), 2)
             patches.append(patchstack[None, ...])
-labels = np.ones([patches.shape[0], 1])
+            labels.append(1.0)
+            num_ones += 1
+            print(np.asarray(patches).shape)
 
-raw_input('''You have selected all of the birds in this file. To continue
-and select non birds, press Enter''')
-os.chdir(photo_dir)
-subdirs = os.listdir(os.getcwd())
-img_nums = np.zeros([len(subdirs)])
-for i in range(len(subdirs)):
-    os.chdir(photo_dir + subdirs[i])
-    img_nums[i] = len(glob.glob('*.JPG'))
+    num_zeros = np.sum(np.float32(bird_nums==0))
+    zeros_per_im = np.int32(np.ceil(num_ones/num_zeros))
+    num_zeros = 0
+    print('Adding patches without birds')
 
-most_imgs = np.argmax(img_nums) + 1
-os.chdir(photo_dir + str(most_imgs))
-files = glob.glob('*.JPG')
-num_imgs = labels.shape[0]
-rand_ex = np.random.randint(1, len(files)-1, num_imgs)
-for j in xrange(num_imgs):
-    rand_num = rand_ex[j]
-    im = np.uint8(imread(files[rand_num]))
-    prev = np.uint8(imread(files[rand_num-1]))
-    nextim = np.uint8(imread(files[rand_num+1]))
-    im = im[615:, ...]
-    prev = prev[615:, ...]
-    nextim = nextim[615:, ...]
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.imshow(np.uint8(im))
-    fig.set_size_inches(100, 100)
-    coords = []
-    cid = fig.canvas.mpl_connect('button_press_event', onclick)
-    plt.show()
-    coords = np.asarray(coords)
-    coords = np.int32(np.floor(coords))
-
-    for i in xrange(coords.shape[0]):
-        c, r = coords[i, :]
-        if im.shape[0] - r <= ps or r <= ps:
+    for j in xrange(1, len(bird_nums)-1):
+        if bird_nums[j] != 0:
             continue
-        elif im.shape[1] - c <= ps or c <= ps:
-            continue
-        patch = im[r-ps:r+ps, c-ps:c+ps, :]
-        patchprev = prev[r-ps:r+ps, c-ps:c+ps, :]
-        patchnext = nextim[r-ps:r+ps, c-ps:c+ps, :]
-        patchstack = np.concatenate((patchprev, patch, patchnext), 2)
-        patches.append(patchstack[None, ...])
-        labels = np.concatenate((labels, np.zeros([1, 1])), 0)
+        elif num_zeros == num_ones:
+            break
 
+        filename = files[j]
 
-f = h5py.File(photo_dir[19:-1] + '.h5', 'a')
-f.create_dataset('imgs', data=np.asarray(patches))
-f.create_dataset('labels', data=labels)
-f.close()
+        im = np.uint8(imread(filename))
+        prev = np.uint8(imread(files[j-1]))
+        nextim = np.uint8(imread(files[j+1]))
+
+        im = im[450:, ...]
+        prev = prev[450:, ...]
+        nextim = nextim[450:, ...]
+
+        randcols = np.int32(np.random.randint(ps, im.shape[1]-ps-1, zeros_per_im))
+        randrows = np.int32(np.random.randint(ps, im.shape[0]-ps-1, zeros_per_im))
+
+        for i in xrange(randrows.size):
+            rr = randrows[i]
+            rc = randcols[i]
+            patch = im[rr-ps:rr+ps, rc-ps:rc+ps, :]
+            patchprev = prev[rr-ps:rr+ps, rc-ps:rc+ps, :]
+            patchnext = nextim[rr-ps:rr+ps, rc-ps:rc+ps, :]
+            patchstack = np.concatenate((patchprev, patch, patchnext), 2)
+            patches.append(patchstack[None, ...])
+            labels.append(0.0)
+            num_zeros += 1
+
+    os.chdir(photo_dir)
+    print('Saving file...')
+    f = h5py.File(photo_dir[20:-1] + dir_ + '.h5', 'a')
+    f.create_dataset('imgs', data=np.asarray(patches))
+    f.create_dataset('labels', data=np.asarray(labels))
+    f.close()
