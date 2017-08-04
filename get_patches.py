@@ -27,7 +27,9 @@ num_dirs = len(dirs)
 
 for dir_ in dirs:
     print(dir_)
-    if os.path.isfile(photo_dir + dir_ + '/' + photo_dir[20:-1] + dir_ + '.h5'):
+    if dir_.endswith('.h5'):
+        continue
+    elif os.path.isfile(photo_dir + photo_dir[20:-1] + dir_ + '.h5'):
         continue
 
     patches = []
@@ -41,7 +43,7 @@ for dir_ in dirs:
     files.sort(key=lambda f: int(filter(str.isdigit, f)))
     num_ones = 0
 
-    for j in xrange(1, len(bird_nums)-1):
+    for j in xrange(1, 100):#len(bird_nums)-1):
         if bird_nums[j] == 0:
             continue
         filename = files[j]
@@ -75,8 +77,10 @@ for dir_ in dirs:
         coords = []
         cid = fig.canvas.mpl_connect('button_press_event', onclick)
         plt.show()
-        coords = np.asarray(coords)
-        coords = np.int32(np.floor(coords))
+        try:
+            coords = np.int32(np.floor(coords))
+        except AttributeError:
+            continue
 
         for i in xrange(coords.shape[0]):
             c, r = coords[i, :]
@@ -88,10 +92,9 @@ for dir_ in dirs:
             patchprev = prev[r-ps:r+ps, c-ps:c+ps, :]
             patchnext = nextim[r-ps:r+ps, c-ps:c+ps, :]
             patchstack = np.concatenate((patchprev, patch, patchnext), 2)
-            patches.append(patchstack[None, ...])
+            patches.append(patchstack)
             labels.append(1.0)
             num_ones += 1
-            print(np.asarray(patches).shape)
 
     num_zeros = np.sum(np.float32(bird_nums==0))
     zeros_per_im = np.int32(np.ceil(num_ones/num_zeros))
@@ -124,13 +127,14 @@ for dir_ in dirs:
             patchprev = prev[rr-ps:rr+ps, rc-ps:rc+ps, :]
             patchnext = nextim[rr-ps:rr+ps, rc-ps:rc+ps, :]
             patchstack = np.concatenate((patchprev, patch, patchnext), 2)
-            patches.append(patchstack[None, ...])
+            patches.append(patchstack)
             labels.append(0.0)
             num_zeros += 1
+
 
     os.chdir(photo_dir)
     print('Saving file...')
     f = h5py.File(photo_dir[20:-1] + dir_ + '.h5', 'a')
-    f.create_dataset('imgs', data=np.asarray(patches))
+    f.create_dataset('imgs', data=np.asarray(patches), dtype=np.uint8)
     f.create_dataset('labels', data=np.asarray(labels))
     f.close()
